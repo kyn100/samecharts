@@ -1,0 +1,30 @@
+{
+  "saved_at": "2026-05-09 20:14",
+  "profile": {
+    "price": 152.13,
+    "rsi": 60.98,
+    "stoch_k": 94.82,
+    "macd_strength": 17.5681,
+    "macd_rising": true,
+    "bb_position": 1.0053,
+    "w52_position": 0.1562,
+    "w52_high": 336.27,
+    "w52_low": 118.05,
+    "price_vs_sma20": 11.31,
+    "price_vs_sma50": 6.61,
+    "price_vs_sma200": -33.91,
+    "sma20": 136.68,
+    "sma50": 142.7,
+    "sma200": 230.18,
+    "vol_ratio": 1.0181,
+    "roc_10": 12.27,
+    "roc_20": 28.87,
+    "ao": 7.2823,
+    "ao_norm": 4.7869,
+    "ao_rising": true,
+    "ao_zero_cross_up": true,
+    "cmf": 0.2848,
+    "cmf_rising": true,
+    "cmf_zero_cross_up": true
+  }
+}
