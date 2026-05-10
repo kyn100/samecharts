@@ -371,7 +371,7 @@ with tab2:
                 e_ao_norm    = st.number_input("AO Norm",         value=float(tp.get("ao_norm", 0.0)),       min_value=-10.0, max_value=10.0,  step=0.01, key="e_ao_norm")
                 e_ao         = st.number_input("AO (raw)",        value=float(tp.get("ao", 0.0)),            min_value=-50.0, max_value=50.0,  step=0.01, key="e_ao")
                 e_cmf        = st.number_input("CMF (20)",        value=float(tp.get("cmf", 0.0)),           min_value=-1.0,  max_value=1.0,   step=0.01, key="e_cmf")
-                e_macd_str   = st.number_input("MACD Strength",   value=float(tp.get("macd_strength", 0.0)), min_value=-10.0, max_value=10.0,  step=0.01, key="e_macd_str")
+                e_macd_str   = st.number_input("MACD Strength",   value=float(tp.get("macd_strength", 0.0)), step=0.01, key="e_macd_str")
             with e3:
                 e_sma20      = st.number_input("vs SMA20 (%)",    value=float(tp.get("price_vs_sma20", 0)),  min_value=-50.0, max_value=50.0,  step=0.1,  key="e_sma20")
                 e_sma50      = st.number_input("vs SMA50 (%)",    value=float(tp.get("price_vs_sma50", 0)),  min_value=-60.0, max_value=60.0,  step=0.1,  key="e_sma50")
