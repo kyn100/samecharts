@@ -358,6 +358,49 @@ with tab2:
             for label, desc in notes:
                 st.markdown(f"- **{label}**: {desc}")
 
+        # ── Edit criteria manually ────────────────────────────────────────────
+        with st.expander(f"Edit / Update  ·  {sel_name}"):
+            st.caption("Adjust any indicator value and save as a new version.")
+            e1, e2, e3 = st.columns(3)
+            with e1:
+                e_rsi        = st.number_input("RSI (14)",        value=float(tp.get("rsi", 50)),            min_value=0.0,   max_value=100.0, step=0.1,  key="e_rsi")
+                e_w52        = st.number_input("52w Position",    value=float(tp.get("w52_position", 0.5)),  min_value=0.0,   max_value=1.0,   step=0.01, key="e_w52")
+                e_bb         = st.number_input("BB Position",     value=float(tp.get("bb_position", 0.5)),   min_value=-0.5,  max_value=1.5,   step=0.01, key="e_bb")
+                e_vol        = st.number_input("Vol Ratio",       value=float(tp.get("vol_ratio", 1.0)),     min_value=0.0,   max_value=5.0,   step=0.05, key="e_vol")
+            with e2:
+                e_ao_norm    = st.number_input("AO Norm",         value=float(tp.get("ao_norm", 0.0)),       min_value=-10.0, max_value=10.0,  step=0.01, key="e_ao_norm")
+                e_ao         = st.number_input("AO (raw)",        value=float(tp.get("ao", 0.0)),            min_value=-50.0, max_value=50.0,  step=0.01, key="e_ao")
+                e_cmf        = st.number_input("CMF (20)",        value=float(tp.get("cmf", 0.0)),           min_value=-1.0,  max_value=1.0,   step=0.01, key="e_cmf")
+                e_macd_str   = st.number_input("MACD Strength",   value=float(tp.get("macd_strength", 0.0)), min_value=-10.0, max_value=10.0,  step=0.01, key="e_macd_str")
+            with e3:
+                e_sma20      = st.number_input("vs SMA20 (%)",    value=float(tp.get("price_vs_sma20", 0)),  min_value=-50.0, max_value=50.0,  step=0.1,  key="e_sma20")
+                e_sma50      = st.number_input("vs SMA50 (%)",    value=float(tp.get("price_vs_sma50", 0)),  min_value=-60.0, max_value=60.0,  step=0.1,  key="e_sma50")
+                e_sma200     = st.number_input("vs SMA200 (%)",   value=float(tp.get("price_vs_sma200", 0)), min_value=-80.0, max_value=80.0,  step=0.1,  key="e_sma200")
+                e_roc10      = st.number_input("ROC 10d (%)",     value=float(tp.get("roc_10", 0)),          min_value=-30.0, max_value=30.0,  step=0.1,  key="e_roc10")
+
+            bc1, bc2, bc3, bc4, bc5 = st.columns(5)
+            with bc1: e_ao_cross_up   = st.checkbox("AO ↑ Cross",   value=bool(tp.get("ao_zero_cross_up",   False)), key="e_ao_xu")
+            with bc2: e_ao_rising     = st.checkbox("AO Rising",     value=bool(tp.get("ao_rising",          False)), key="e_ao_r")
+            with bc3: e_cmf_cross_up  = st.checkbox("CMF ↑ Cross",  value=bool(tp.get("cmf_zero_cross_up",  False)), key="e_cmf_xu")
+            with bc4: e_cmf_rising    = st.checkbox("CMF Rising",    value=bool(tp.get("cmf_rising",         False)), key="e_cmf_r")
+            with bc5: e_macd_rising   = st.checkbox("MACD Rising",   value=bool(tp.get("macd_rising",        False)), key="e_macd_r")
+
+            if st.button("Save as New Version", type="primary", key="edit_save"):
+                edited = {**tp,
+                    "rsi": e_rsi, "w52_position": e_w52, "bb_position": e_bb,
+                    "vol_ratio": e_vol, "ao_norm": e_ao_norm, "ao": e_ao,
+                    "cmf": e_cmf, "macd_strength": e_macd_str,
+                    "price_vs_sma20": e_sma20, "price_vs_sma50": e_sma50,
+                    "price_vs_sma200": e_sma200, "roc_10": e_roc10,
+                    "ao_zero_cross_up": e_ao_cross_up, "ao_rising": e_ao_rising,
+                    "cmf_zero_cross_up": e_cmf_cross_up, "cmf_rising": e_cmf_rising,
+                    "macd_rising": e_macd_rising,
+                }
+                lib = _save_named_criteria(lib, sel_name, edited)
+                v = lib[sel_name][-1]["version"]
+                st.success(f"Saved **{sel_name}** v{v}.")
+                st.rerun()
+
         # ── Run scan ─────────────────────────────────────────────────────────
         if not run2 and "tech_done" not in st.session_state:
             st.info("Click **Scan Now** to find stocks matching these criteria.")
