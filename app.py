@@ -402,19 +402,31 @@ with tab2:
                 st.rerun()
 
         # ── Run scan ─────────────────────────────────────────────────────────
-        if not run2 and "tech_done" not in st.session_state:
+        # Persist scan intent across rerenders; button state resets every render
+        if run2:
+            st.session_state["tech_run"] = True
+            st.session_state.pop("tech_done", None)
+
+        if not st.session_state.get("tech_run") and not st.session_state.get("tech_done"):
             st.info("Click **Scan Now** to find stocks matching these criteria.")
         else:
-            universe2 = tuple(get_all_tickers())
-            with st.spinner(f"Downloading 1-year OHLCV for {len(universe2)} tickers…"):
-                ohlcv = download_ohlcv(universe2, "1y")
+            try:
+                universe2 = tuple(get_all_tickers())
+                with st.spinner(f"Step 1/3 — Downloading OHLCV for {len(universe2)} tickers (3–5 min on first run)…"):
+                    ohlcv = download_ohlcv(universe2, "1y")
 
-            st.session_state["tech_done"] = True
+                with st.spinner("Step 2/3 — Computing technical profiles…"):
+                    all_profiles = compute_all_profiles(ohlcv)
 
-            with st.spinner("Computing technical profiles…"):
-                all_profiles = compute_all_profiles(ohlcv)
+                with st.spinner("Step 3/3 — Finding matches…"):
+                    matches = find_technical_matches(tp, all_profiles, top_n=top_n2)
 
-            matches = find_technical_matches(tp, all_profiles, top_n=top_n2)
+                st.session_state["tech_done"] = True
+                st.session_state.pop("tech_run", None)
+            except Exception as exc:
+                st.error(f"Scan failed: {exc}")
+                st.session_state.pop("tech_run", None)
+                st.stop()
 
             st.divider()
             st.subheader("Matching Stocks & ETFs")
