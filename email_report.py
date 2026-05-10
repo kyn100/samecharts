@@ -185,7 +185,7 @@ def _make_pdf(matches: pd.DataFrame, criteria: dict, saved_at: str, path: str) -
 
 # ── Email ─────────────────────────────────────────────────────────────────────
 
-def _send_email(pdf_path: str, cfg: dict) -> None:
+def _send_email(pdf_path: str, cfg: dict, crit_name: str = "Default") -> None:
     gmail_user = cfg.get("gmail_user", "kyn100@gmail.com")
     app_pw     = cfg.get("gmail_app_password", "")
     if not app_pw or app_pw == "REPLACE_WITH_YOUR_APP_PASSWORD":
@@ -198,11 +198,12 @@ def _send_email(pdf_path: str, cfg: dict) -> None:
     msg = MIMEMultipart()
     msg["From"]    = gmail_user
     msg["To"]      = RECIPIENT
-    msg["Subject"] = f"Stock Buy Signals — {date_str}"
+    msg["Subject"] = f"Stock Buy Signals [{crit_name}] — {date_str}"
 
     body = (
         f"Hi,\n\n"
-        f"Attached is today's Technical Profile Match report ({date_str}).\n\n"
+        f"Attached is today's Technical Profile Match report ({date_str}).\n"
+        f"Criteria used: {crit_name}\n\n"
         f"It shows the top stocks and ETFs whose current technical setup best matches "
         f"your saved buy criteria — RSI momentum, AO & CMF zero-crosses, SMA levels, "
         f"and volume.\n\n"
@@ -238,9 +239,23 @@ def main() -> None:
         return
 
     with open(CRITERIA_FILE, encoding="utf-8") as f:
-        saved = json.load(f)
-    tp       = saved["profile"]
-    saved_at = saved.get("saved_at", "unknown")
+        data = json.load(f)
+
+    # Support both old single-entry format and new named library format
+    if "profile" in data:
+        tp       = data["profile"]
+        saved_at = data.get("saved_at", "unknown")
+        crit_name = "Default"
+    else:
+        # Use the first criteria's latest version
+        first_name = next(iter(data))
+        versions   = data[first_name]
+        latest     = versions[-1]
+        tp         = latest["profile"]
+        saved_at   = latest["saved_at"]
+        crit_name  = f"{first_name} v{latest['version']}"
+
+    logger.info(f"Using criteria: {crit_name} (saved {saved_at})")
 
     logger.info(f"Loaded criteria (saved {saved_at})")
     logger.info("Fetching universe tickers…")
@@ -259,7 +274,7 @@ def main() -> None:
     date_str = datetime.now().strftime("%Y-%m-%d")
     pdf_path = os.path.join(HERE, f"report_{date_str}.pdf")
     _make_pdf(matches, tp, saved_at, pdf_path)
-    _send_email(pdf_path, cfg)
+    _send_email(pdf_path, cfg, crit_name)
 
 
 if __name__ == "__main__":

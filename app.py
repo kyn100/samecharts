@@ -196,20 +196,39 @@ import json, os
 
 CRITERIA_FILE = os.path.join(os.path.dirname(__file__), "saved_criteria.json")
 
-def _load_criteria() -> dict | None:
-    if os.path.exists(CRITERIA_FILE):
-        with open(CRITERIA_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    return None
+from datetime import datetime as _dt
 
-def _save_criteria(profile: dict) -> None:
-    from datetime import datetime
-    data = {
-        "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "profile": {k: v for k, v in profile.items() if k != "ticker"},
-    }
+def _load_library() -> dict:
+    """Load criteria library. Auto-migrates the old single-entry format."""
+    if not os.path.exists(CRITERIA_FILE):
+        return {}
+    with open(CRITERIA_FILE, encoding="utf-8") as f:
+        data = json.load(f)
+    # Old format had a top-level "profile" key — migrate it
+    if "profile" in data:
+        data = {
+            "ZS Recovery Play": [
+                {"version": 1, "saved_at": data.get("saved_at", ""), "profile": data["profile"]}
+            ]
+        }
+        _write_library(data)
+    return data
+
+def _write_library(lib: dict) -> None:
     with open(CRITERIA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+        json.dump(lib, f, indent=2)
+
+def _save_named_criteria(lib: dict, name: str, profile: dict) -> dict:
+    """Append a new version under `name`, or create a new entry. Returns updated lib."""
+    clean = {k: v for k, v in profile.items() if k != "ticker"}
+    entry = {"version": 1, "saved_at": _dt.now().strftime("%Y-%m-%d %H:%M"), "profile": clean}
+    if name in lib:
+        entry["version"] = lib[name][-1]["version"] + 1
+        lib[name].append(entry)
+    else:
+        lib[name] = [entry]
+    _write_library(lib)
+    return lib
 
 def _norm_for_radar(p: dict) -> list:
     return [
@@ -228,49 +247,76 @@ RADAR_CATS = ["52w Pos", "RSI", "BB Pos", "vs SMA20", "vs SMA200", "ROC10", "AO"
 with tab2:
     st.title("Technical Profile Match")
 
-    saved = _load_criteria()
+    lib = _load_library()
 
-    # ── Sidebar-style controls inside tab ─────────────────────────────────────
-    ctrl_l, ctrl_r = st.columns([3, 1])
-    with ctrl_l:
-        top_n2 = st.selectbox("Results to show", [10, 15, 20, 30], index=0, key="n2")
-    with ctrl_r:
-        st.write("")
-        run2 = st.button("Scan Now", type="primary", use_container_width=True, key="run2")
-
-    # ── Update criteria expander (no symbol shown in main UI) ─────────────────
-    with st.expander("Update Criteria from a New Chart"):
-        st.caption("Analyze any ticker to replace the saved criteria with its current technical setup.")
-        uc1, uc2 = st.columns([2, 1])
-        with uc1:
-            update_ticker = st.text_input("Ticker to analyze", max_chars=10, key="ut").strip().upper()
-        with uc2:
+    # ── Criteria selector ─────────────────────────────────────────────────────
+    if lib:
+        names = list(lib.keys())
+        sel_col, ver_col, n_col, run_col = st.columns([3, 2, 1, 1])
+        with sel_col:
+            sel_name = st.selectbox("Criteria", names, key="crit_name")
+        with ver_col:
+            versions = lib[sel_name]
+            ver_labels = [
+                f"v{e['version']}  ({e['saved_at']})" for e in versions
+            ]
+            sel_ver_label = st.selectbox("Version", ver_labels[::-1], key="crit_ver")
+            sel_ver_idx = len(versions) - 1 - ver_labels[::-1].index(sel_ver_label)
+            selected_entry = versions[sel_ver_idx]
+        with n_col:
+            top_n2 = st.selectbox("Top", [10, 15, 20, 30], index=0, key="n2")
+        with run_col:
             st.write("")
-            update_btn = st.button("Extract & Save", key="ubtn")
+            run2 = st.button("Scan Now", type="primary", use_container_width=True, key="run2")
+    else:
+        top_n2 = 10
+        run2 = False
+        sel_name = None
+        selected_entry = None
 
-        if update_btn and update_ticker:
-            with st.spinner(f"Analyzing {update_ticker}…"):
-                tmp_ohlcv = download_ohlcv((update_ticker,), "1y")
-            if update_ticker in tmp_ohlcv:
-                new_profile = extract_profile(update_ticker, tmp_ohlcv[update_ticker])
-                if new_profile:
-                    _save_criteria(new_profile)
-                    saved = _load_criteria()
-                    st.success("Criteria updated and saved.")
-                    st.rerun()
+    # ── Save / update criteria expander ──────────────────────────────────────
+    with st.expander("Save Criteria from a Stock Chart"):
+        st.caption("Extract the current technical setup from any ticker and save it as a named criteria.")
+        ea, eb, ec, ed = st.columns([2, 2, 1, 1])
+        with ea:
+            save_ticker = st.text_input("Ticker to analyze", max_chars=10, key="ut").strip().upper()
+        with eb:
+            default_name = sel_name or ""
+            save_name = st.text_input("Criteria name", value=default_name, key="crit_save_name").strip()
+        with ec:
+            st.write("")
+            save_new_btn = st.button("Save as New", key="ubtn_new")
+        with ed:
+            st.write("")
+            save_ver_btn = st.button("Update Selected", key="ubtn_ver", disabled=(not lib))
+
+        if (save_new_btn or save_ver_btn) and save_ticker:
+            if not save_name:
+                st.error("Enter a criteria name.")
             else:
-                st.error(f"No data for {update_ticker}.")
+                with st.spinner(f"Analyzing {save_ticker}…"):
+                    tmp_ohlcv = download_ohlcv((save_ticker,), "1y")
+                if save_ticker in tmp_ohlcv:
+                    new_profile = extract_profile(save_ticker, tmp_ohlcv[save_ticker])
+                    if new_profile:
+                        target_name = save_name if save_new_btn else sel_name
+                        lib = _save_named_criteria(lib, target_name, new_profile)
+                        v = lib[target_name][-1]["version"]
+                        st.success(f"Saved **{target_name}** v{v}.")
+                        st.rerun()
+                else:
+                    st.error(f"No data for {save_ticker}.")
 
     # ── Require saved criteria ────────────────────────────────────────────────
-    if not saved:
-        st.info("No criteria saved yet. Use **Update Criteria** above to extract a technical setup from any chart.")
+    if not lib or selected_entry is None:
+        st.info("No criteria saved yet. Use **Save Criteria** above to extract a setup from any chart.")
     else:
-        tp = saved["profile"]
+        tp = selected_entry["profile"]
 
         # ── Saved criteria display ────────────────────────────────────────────
         st.divider()
-        st.subheader("Saved Criteria")
-        st.caption(f"Last updated: {saved.get('saved_at', 'unknown')}")
+        st.subheader(f"Criteria: {sel_name}")
+        st.caption(f"v{selected_entry['version']}  ·  saved {selected_entry['saved_at']}")
 
         criteria_rows = [
             ("RSI (14)",           f"{tp['rsi']:.1f}",              "Momentum level — target zone"),
